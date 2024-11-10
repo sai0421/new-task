@@ -1,0 +1,59 @@
+name: Assign Referral Link
+
+on:
+  workflow_dispatch:
+    inputs:
+      user:
+        description: 'Name of the user'
+        required: true
+        default: 'Anonymous'
+
+jobs:
+  assign-link:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+
+      - name: Assign Link
+        id: assign_link
+        run: |
+          const fs = require('fs');
+          const userName = '${{ github.event.inputs.user }}';
+          const linksFile = './links.json';
+
+          // Read the links.json file
+          const links = JSON.parse(fs.readFileSync(linksFile, 'utf8'));
+
+          // Find the first unused link
+          const link = links.find(l => !l.used);
+
+          if (!link) {
+            console.error('No available links');
+            process.exit(1);
+          }
+
+          // Assign the link
+          link.used = true;
+          link.user = userName;
+
+          // Write the updated data back to links.json
+          fs.writeFileSync(linksFile, JSON.stringify(links, null, 2));
+
+          console.log(`Assigned link: ${link.url} to ${userName}`);
+        env:
+          LINK_URL: ${{ steps.assign_link.outputs.url }}
+
+      - name: Commit changes
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add links.json
+          git commit -m "Assigned link to ${{ github.event.inputs.user }}"
+          git push
